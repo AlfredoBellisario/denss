@@ -3411,6 +3411,16 @@ def denss_3DFs(rho_start, dmax, ne=None, voxel=5., oversampling=3., positivity=T
         #Error Reduction
         newrho[support] = rhoprime[support]
         newrho[~support] = 0.0
+        #Dark structure reference 
+        if dark_reference is True:
+            support_start = np.where(rho_start > 0, 1, 0)
+            max_rho_start = np.max(rho_start)
+            drho = newrho - rho_start
+            if j == 0:
+                print('Restraining density range', end = '\n')
+            newrho[newrho[support_start==0] < 0] = 0.0 
+            newrho = np.where(drho > max_rho_start, max_rho_start, drho)
+            newrho = np.where(drho < -max_rho_start, -max_rho_start, drho)       
         #enforce positivity by making all negative density points zero.
         if positivity:
             netmp = np.sum(newrho)
