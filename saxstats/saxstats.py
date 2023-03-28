@@ -1234,7 +1234,16 @@ def denss(q, I, sigq, dmax, ne=None, voxel=5., oversampling=3., recenter=True, r
         #Error Reduction
         newrho *= 0
         newrho[support] = rhoprime[support]
-
+        if j == 0:
+            import mrcfile
+            path = '/gpfs/exfel/u/scratch/SPB/202202/p003046/alfredo/xfel3046/offline/jupyter/DENSS/tests_pdb/7pgx/'
+            with mrcfile.open(path+'aslov_structure_nohelix_pdb.mrc','r') as mrc:
+                protein_volume = mrc.data
+       
+            pdb_f = PDB(filename=path+'7pgx.pdb') #'aslov_structure_nohelix_centered.pdb')
+            xyz = np.column_stack([x.flat,y.flat,z.flat])
+            support_pdb = pdb2support(pdb_f,xyz)
+        newrho[support_pdb] = protein_volume[support_pdb]
         # enforce positivity by making all negative density points zero.
         if positivity:
             newrho[newrho<0] = 0.0
