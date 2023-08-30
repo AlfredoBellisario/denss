@@ -71,6 +71,8 @@ if __name__ == "__main__":
         ne=args.ne,
         voxel=args.voxel,
         oversampling=args.oversampling,
+        dark_support=args.dark_support, 
+        dark_reference=args.dark_reference,
         recenter=args.recenter,
         recenter_steps=args.recenter_steps,
         recenter_mode=args.recenter_mode,
