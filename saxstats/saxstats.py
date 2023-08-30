@@ -1182,10 +1182,10 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
         
     if dark_reference is not None:
         if dark_support is not None:
-            rho = dark_reference
-            newrho = dark_reference
             rho[support] = np.random.random(len(rho[support]))
             newrho[support] = np.random.random(len(rho[support]))
+            rho = np.where(dark_reference>1e-3,dark_reference,0)
+            newrho = np.where(dark_reference>1e-3,dark_reference,0)
         else:
             print('No support defined when using dark structure as reference! Either pass dark_support or use rho_start')   
 
