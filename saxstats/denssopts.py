@@ -434,7 +434,6 @@ def parse_arguments(parser):
             print("n (support, given): ", support_nsamples, nsamples)
             args.dark_support_start = None
         else:
-            dark_support = 
             args.support_start = support_start.astype(bool)
             
     #allow user to give initial support to be used in parallel with known dark densitites, check for consistency with given grid parameters
