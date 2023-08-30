@@ -1043,7 +1043,7 @@ def filter_P(r,P,sigr=None,qmax=0.5,cutoff=0.75,qmin=0.0,cutoffmin=1.25):
 def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
     ne=None, voxel=5., oversampling=3., recenter=True, recenter_steps=None,
     recenter_mode="com", positivity=True, positivity_steps=None, extrapolate=True, output="map",
-    steps=None, seed=None, rho_start=None, support_start=None, add_noise=None,
+    steps=None, seed=None, rho_start=None, dark_reference=None, dark_support=None, support_start=None, add_noise=None,
     shrinkwrap=True, shrinkwrap_old_method=False,shrinkwrap_sigma_start=3,
     shrinkwrap_sigma_end=1.5, shrinkwrap_sigma_decay=0.99, shrinkwrap_threshold_fraction=0.2,
     shrinkwrap_iter=20, shrinkwrap_minstep=100, chi_end_fraction=0.01,
@@ -1173,6 +1173,21 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
     else:
         rho = prng.random_sample(size=x.shape) #- 0.5
     newrho = np.zeros_like(rho)
+       
+    if dark_support is not None:
+        if dark_reference is not None:
+            support = dark_support.copy()
+        else:
+            print('No densities defined when using dark support! Either pass dark_densities or use support')
+        
+    if dark_reference is not None:
+        if dark_support is not None:
+            rho = dark_reference
+            newrho = dark_reference
+            rho[support] = np.random.random(len(rho[support]))
+            newrho[support] = np.random.random(len(rho[support]))
+        else:
+            print('No support defined when using dark structure as reference! Either pass dark_support or use rho_start')   
 
     sigma = shrinkwrap_sigma_start
 
@@ -1330,6 +1345,10 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
         #Error Reduction
         newrho *= 0
         newrho[support] = rhoprime[support]
+        if dark_reference is not None:
+            if dark_support is not None:
+                newrho = np.where(dark_reference>1e-3,dark_reference,newrho)
+                rho = np.where(dark_reference>1e-3,dark_reference,newrho)
 
         if not DENSS_GPU and j%write_freq == 0:
             if write_xplor_format:
@@ -1380,12 +1399,18 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
             if shrinkwrap_old_method:
                 #run the old method
                 absv = True
-                newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
+                if dark_support is not None:
+                    newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode, dark_support=dark_support, oldsupport=support)
+                else:
+                    newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
             else:
                 swN = int(swV/dV)
                 #end this stage of shrinkwrap when the volume is less than a sphere of radius D/2
                 if swbyvol and swV > swVend:
-                    newrho, support, threshold = shrinkwrap_by_volume(newrho,absv=True,sigma=sigma,N=swN,recenter=recenter,recenter_mode=recenter_mode)
+                    if dark_support is not None:
+                        newrho, support, threshold = shrinkwrap_by_volume(newrho,absv=True,sigma=sigma,N=swN,recenter=recenter,recenter_mode=recenter_mode,dark_support=dark_support, oldsupport=support)
+                    else:
+                        newrho, support, threshold = shrinkwrap_by_volume(newrho,absv=True,sigma=sigma,N=swN,recenter=recenter,recenter_mode=recenter_mode)
                     swV *= swV_decay
                 else:
                     threshold = shrinkwrap_threshold_fraction
@@ -1396,7 +1421,10 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
                             else:
                                 print("\nswitched to shrinkwrap by density threshold = %.4f" %threshold)
                         first_time_swdensity = False
-                    newrho, support = shrinkwrap_by_density_value(newrho,absv=True,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
+                    if dark_support is not None:
+                        newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode, dark_support=dark_support, oldsupport=support)
+                    else:
+                        newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
 
 
             if DENSS_GPU:
@@ -1431,12 +1459,18 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
 
             if shrinkwrap_old_method:
                 absv = True
-                newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
+                if dark_support is not None:
+                    newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode, dark_support=dark_support, oldsupport=support)
+                else:
+                    newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
             else:
                 swN = int(swV/dV)
                 #end this stage of shrinkwrap when the volume is less than a sphere of radius D/2
                 if swbyvol and swV > swVend:
-                    newrho, support, threshold = shrinkwrap_by_volume(newrho,absv=True,sigma=sigma,N=swN,recenter=recenter,recenter_mode=recenter_mode)
+                    if dark_support is not None:
+                        newrho, support, threshold = shrinkwrap_by_volume(newrho,absv=True,sigma=sigma,N=swN,recenter=recenter,recenter_mode=recenter_mode,dark_support=dark_support, oldsupport=support)
+                    else:
+                        newrho, support, threshold = shrinkwrap_by_volume(newrho,absv=True,sigma=sigma,N=swN,recenter=recenter,recenter_mode=recenter_mode)
                     swV *= swV_decay
                 else:
                     threshold = shrinkwrap_threshold_fraction
@@ -1447,7 +1481,10 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
                             else:
                                 print("\nswitched to shrinkwrap by density threshold = %.4f" %threshold)
                         first_time_swdensity = False
-                    newrho, support = shrinkwrap_by_density_value(newrho,absv=True,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
+                    if dark_support is not None:
+                        newrho, support = shrinkwrap_by_density_value(newrho,absv=True,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode, dark_support=dark_support, oldsupport=support)
+                    else:
+                        newrho, support = shrinkwrap_by_density_value(newrho,absv=True,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
 
             if sigma > shrinkwrap_sigma_end:
                 sigma = shrinkwrap_sigma_decay*sigma
@@ -1482,14 +1519,23 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
             if shrinkwrap_old_method:
                 #run the old method
                 absv = True
-                newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
+                if dark_support is not None:
+                    newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode, dark_support=dark_support, oldsupport=support)
+                else:
+                    newrho, support = shrinkwrap_by_density_value(newrho,absv=absv,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
             else:
                 #end this stage of shrinkwrap when the volume is less than a sphere of radius D/2
                 swN = int(swV/dV)
                 if swbyvol and swV>swVend:
-                    newrho, support, threshold = shrinkwrap_by_volume(newrho,absv=True,sigma=sigma,N=swN,recenter=recenter,recenter_mode=recenter_mode)
+                    if dark_support is not None:
+                        newrho, support, threshold = shrinkwrap_by_volume(newrho,absv=True,sigma=sigma,N=swN,recenter=recenter,recenter_mode=recenter_mode,dark_support=dark_support, oldsupport=support)
+                    else:
+                        newrho, support, threshold = shrinkwrap_by_volume(newrho,absv=True,sigma=sigma,N=swN,recenter=recenter,recenter_mode=recenter_mode)
                 else:
-                    newrho, support = shrinkwrap_by_density_value(newrho,absv=True,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
+                    if dark_support is not None:
+                        newrho, support = shrinkwrap_by_density_value(newrho,absv=True,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode, dark_support=dark_support, oldsupport=support)
+                    else:
+                        newrho, support = shrinkwrap_by_density_value(newrho,absv=True,sigma=sigma,threshold=threshold,recenter=recenter,recenter_mode=recenter_mode)
 
             #label the support into separate segments based on a 3x3x3 grid
             struct = ndimage.generate_binary_structure(3, 3)
@@ -1581,6 +1627,9 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
     # rho = myifftn(F)
     rho = myirfftn(F)
     rho = rho.real
+
+    if dark_reference is not None:
+        rho = np.where(dark_reference>1e-3,dark_reference,newrho)
 
     #negative images yield the same scattering, so flip the image
     #to have more positive than negative values if necessary
@@ -1675,7 +1724,7 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
 
     return qdata, Idata, sigqdata, qbinsc, Imean, chi, rg, supportV, rho, side, fit, final_chi2
 
-def shrinkwrap_by_density_value(rho,absv=True,sigma=3.0,threshold=0.2,recenter=True,recenter_mode="com"):
+def shrinkwrap_by_density_value(rho,absv=True,sigma=3.0,threshold=0.2,recenter=True,recenter_mode="com",dark_support=None,oldsupport=None):
     """Create support using shrinkwrap method based on threshold as fraction of maximum density
 
     rho - electron density; numpy array
@@ -1693,13 +1742,17 @@ def shrinkwrap_by_density_value(rho,absv=True,sigma=3.0,threshold=0.2,recenter=T
     else:
         tmp = rho
     rho_blurred = ndimage.filters.gaussian_filter(tmp,sigma=sigma,mode='wrap')
-
-    support = np.zeros(rho.shape,dtype=bool)
-    support[rho_blurred >= threshold*rho_blurred.max()] = True
+    
+    if dark_support is None:
+        support = np.zeros(rho.shape,dtype=bool)
+        support[rho_blurred >= threshold*rho_blurred.max()] = True
+    else:
+        oldsupport[rho_blurred >= threshold*(rho_blurred.max()-rho_blurred.min())] = True
+        support = oldsupport.copy()
 
     return rho, support
 
-def shrinkwrap_by_volume(rho,N,absv=True,sigma=3.0,recenter=True,recenter_mode="com"):
+def shrinkwrap_by_volume(rho,N,absv=True,sigma=3.0,recenter=True,recenter_mode="com",dark_support=None,oldsupport=None):
     """Create support using shrinkwrap method based on threshold as fraction of maximum density
 
     rho - electron density; numpy array
@@ -1717,13 +1770,21 @@ def shrinkwrap_by_volume(rho,N,absv=True,sigma=3.0,recenter=True,recenter_mode="
     else:
         tmp = rho
     rho_blurred = ndimage.filters.gaussian_filter(tmp,sigma=sigma,mode='wrap')
-
-    #grab the N largest values of the array
-    idx = largest_indices(rho_blurred, N)
-    support = np.zeros(rho.shape,dtype=bool)
-    support[idx] = True
-    #now, calculate the threshold that would correspond to the by_density_value method
-    threshold = np.min(rho_blurred[idx])/rho_blurred.max()
+    
+    if dark_support is None:   
+        #grab the N largest values of the array
+        idx = largest_indices(rho_blurred, N)
+        support = np.zeros(rho.shape,dtype=bool)
+        support[idx] = True
+        #now, calculate the threshold that would correspond to the by_density_value method
+        threshold = np.min(rho_blurred[idx])/rho_blurred.max()
+    else:
+        #grab the N largest values of the array
+        idx = largest_indices(rho_blurred, N)
+        oldsupport[idx] = True
+        #now, calculate the threshold that would correspond to the by_density_value method
+        threshold = np.min(rho_blurred[idx])/rho_blurred.max()
+        support = oldsupport.copy()        
 
     return rho, support, threshold
 
