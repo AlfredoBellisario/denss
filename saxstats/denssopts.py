@@ -37,6 +37,8 @@ def parse_arguments(parser):
     parser.add_argument("-o", "--output", default=None, help="Output filename prefix")
     parser.add_argument("-v", "--voxel", default=None, type=float, help="Set desired voxel size, setting resolution of map")
     parser.add_argument("-os","--oversampling", default=3., type=float, help="Sampling ratio")
+    parser.add_argument("-dark", "--dark_reference", default=None, help="Starting electron density map of dark state is being used as a reference.")
+    parser.add_argument("-dark_s", "--dark_support", default=None, help="Support used when the dark state is known.")
     parser.add_argument("--ne", default=None, type=float, help="Number of electrons in object (default 10000, set to negative number to ignore.)")
     parser.add_argument("--seed", default=None, help="Random seed to initialize the map")
     parser.add_argument("-rc","-rc_on", "--recenter_on", dest="recenter", action="store_true", help="Recenter electron density when updating support. (default)")
@@ -371,7 +373,7 @@ def parse_arguments(parser):
 
     oversampling = args.oversampling
     side = dmax * oversampling
-
+    
     #allow user to give initial density map for denss.refine.py
     if args.rho_start is not None:
         rho_start, rho_side = saxs.read_mrc(args.rho_start)
@@ -395,6 +397,26 @@ def parse_arguments(parser):
             shrinkwrap_old_method = True
         else:
             shrinkwrap_old_method = args.shrinkwrap_old_method
+            
+    #allow user to give initial density map for denss.py - the only difference with rho_start is that it does not set shrinkwrap_old_method = True
+    if args.dark_reference is not None:
+        dark_reference, dark_reference_side = saxs.read_mrc(args.dark_reference)
+        dark_reference_nsamples = dark_reference.shape[0]
+        dark_reference_voxel = dark_reference_side/dark_reference_nsamples
+
+        if (not np.isclose(dark_reference_side, side) or
+            not np.isclose(dark_reference_voxel, voxel) or
+            not np.isclose(dark_reference_nsamples, nsamples)):
+            print("dark_reference density dimensions do not match given options.")
+            print("Oversampling and voxel size adjusted to match dark_reference dimensions.")
+            side = dark_reference_side
+            voxel = dark_reference_voxel
+            oversampling = side/dmax
+            nsamples = dark_reference_nsamples
+        #set args.dark_reference to the actual density map, rather than the filename
+        args.dark_reference = dark_reference
+        if args.recenter is None:
+            args.recenter = False
 
     #allow user to give initial support, check for consistency with given grid parameters
     if args.support_start is not None:
@@ -410,9 +432,30 @@ def parse_arguments(parser):
             print("side (support, given): ", support_side, side)
             print("voxel (support, given): ", support_voxel, voxel)
             print("n (support, given): ", support_nsamples, nsamples)
+            args.dark_support_start = None
+        else:
+            dark_support = 
+            args.support_start = support_start.astype(bool)
+            
+    #allow user to give initial support to be used in parallel with known dark densitites, check for consistency with given grid parameters
+    if args.dark_support is not None:
+        dark_support_start, dark_support_side = saxs.read_mrc(args.dark_support)
+        dark_support_nsamples = dark_support_start.shape[0]
+        dark_support_voxel = dark_support_side/dark_support_nsamples
+
+        if (not np.isclose(dark_support_side, side) or
+            not np.isclose(dark_support_voxel, voxel) or
+            not np.isclose(dark_support_nsamples, nsamples)):
+            print("dark_support dimensions do not match given options.")
+            print("Ignoring support.")
+            print("side (support, given): ", dark_support_side, side)
+            print("voxel (support, given): ", dark_support_voxel, voxel)
+            print("n (support, given): ", dark_support_nsamples, nsamples)
             args.support_start = None
         else:
-            args.support_start = support_start.astype(bool)
+            dark_support = np.where(dark_support>1e-2,1,dark_support)
+            dark_support = np.where(dark_support<1.1e-2,0,dark_support)
+            args.dark_support = dark_support.astype(bool)
 
     if args.shrinkwrap is None:
         if args.support_start is not None:
@@ -445,6 +488,11 @@ def parse_arguments(parser):
         #then set ne to be the sum of the given density map
         dV = voxel**3
         args.ne = args.rho_start.sum() * dV
+    elif args.dark_reference is not None:
+        #if args.ne is not given, and args.dark_reference is given,
+        #then set ne to be the sum of the given density map
+        dV = voxel**3
+        args.ne = args.dark_reference.sum() * dV
     else:
         #default to 10,000
         args.ne = 10000.0
