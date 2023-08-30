@@ -1177,6 +1177,8 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
     if dark_support is not None:
         if dark_reference is not None:
             support = dark_support.copy()
+            print(support)
+            print(support.dtype)
         else:
             print('No densities defined when using dark support! Either pass dark_densities or use support')
         
