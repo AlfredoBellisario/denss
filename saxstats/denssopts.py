@@ -432,7 +432,7 @@ def parse_arguments(parser):
             print("side (support, given): ", support_side, side)
             print("voxel (support, given): ", support_voxel, voxel)
             print("n (support, given): ", support_nsamples, nsamples)
-            args.dark_support_start = None
+            args.support_start = None
         else:
             args.support_start = support_start.astype(bool)
             
@@ -450,7 +450,7 @@ def parse_arguments(parser):
             print("side (support, given): ", dark_support_side, side)
             print("voxel (support, given): ", dark_support_voxel, voxel)
             print("n (support, given): ", dark_support_nsamples, nsamples)
-            args.support_start = None
+            args.dark_support = None
         else:
             dark_support = np.where(dark_support>1e-2,1,dark_support)
             dark_support = np.where(dark_support<1.1e-2,0,dark_support)
