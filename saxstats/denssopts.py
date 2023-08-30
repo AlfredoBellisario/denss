@@ -432,42 +432,30 @@ def parse_arguments(parser):
             print("side (support, given): ", support_side, side)
             print("voxel (support, given): ", support_voxel, voxel)
             print("n (support, given): ", support_nsamples, nsamples)
-            args.support_start = None
+            args.dark_support_start = None
         else:
+            dark_support = 
             args.support_start = support_start.astype(bool)
             
     #allow user to give initial support to be used in parallel with known dark densitites, check for consistency with given grid parameters
     if args.dark_support is not None:
-        dark_support, dark_support_side = saxs.read_mrc(args.dark_support)
-        dark_support_nsamples = dark_support.shape[0]
+        dark_support_start, dark_support_side = saxs.read_mrc(args.dark_support)
+        dark_support_nsamples = dark_support_start.shape[0]
         dark_support_voxel = dark_support_side/dark_support_nsamples
-        dark_support = np.where(dark_support>1e-2,1,dark_support)
-        dark_support = np.where(dark_support<1.1e-2,0,dark_support)
-        args.dark_support = dark_support.astype(bool)
+
         if (not np.isclose(dark_support_side, side) or
             not np.isclose(dark_support_voxel, voxel) or
             not np.isclose(dark_support_nsamples, nsamples)):
             print("dark_support dimensions do not match given options.")
-            print("Oversampling and voxel size adjusted to match dark_support dimensions.")
-            side = dark_support_side
-            voxel = dark_support_voxel
-            oversampling = side/dmax
-            nsamples = dark_support_nsamples
-        #set args.dark_reference to the actual density map, rather than the filename
-        args.dark_support = dark_support
-        if args.recenter is None:
-            args.recenter = False
-        if args.dark_reference is not None:
-            if (not np.isclose(dark_reference_side, side) or
-                not np.isclose(dark_reference_voxel, voxel) or
-                not np.isclose(dark_reference_nsamples, nsamples)):
-                print("dark support dimensions do not match dark reference dimensions.")
-                print("side (support, reference): ", side, dark_reference_side)
-                print("voxel (support, reference): ", voxel, dark_reference_voxel)
-                print("n (support, reference): ", nsamples, dark_reference_nsamples)
-                print("Ignoring dark reference and dark support.")
-                args.dark_reference = None
-                args.dark_support = None
+            print("Ignoring support.")
+            print("side (support, given): ", dark_support_side, side)
+            print("voxel (support, given): ", dark_support_voxel, voxel)
+            print("n (support, given): ", dark_support_nsamples, nsamples)
+            args.support_start = None
+        else:
+            dark_support = np.where(dark_support>1e-2,1,dark_support)
+            dark_support = np.where(dark_support<1.1e-2,0,dark_support)
+            args.dark_support = dark_support.astype(bool)
 
     if args.shrinkwrap is None:
         if args.support_start is not None:
