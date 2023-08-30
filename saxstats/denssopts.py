@@ -438,8 +438,8 @@ def parse_arguments(parser):
             
     #allow user to give initial support to be used in parallel with known dark densitites, check for consistency with given grid parameters
     if args.dark_support is not None:
-        dark_support_start, dark_support_side = saxs.read_mrc(args.dark_support)
-        dark_support_nsamples = dark_support_start.shape[0]
+        dark_support, dark_support_side = saxs.read_mrc(args.dark_support)
+        dark_support_nsamples = dark_support.shape[0]
         dark_support_voxel = dark_support_side/dark_support_nsamples
 
         if (not np.isclose(dark_support_side, side) or
