@@ -441,14 +441,13 @@ def parse_arguments(parser):
         dark_support, dark_support_side = saxs.read_mrc(args.dark_support)
         dark_support_nsamples = dark_support.shape[0]
         dark_support_voxel = dark_support_side/dark_support_nsamples
-
+        dark_support = np.where(dark_support>1e-2,1,dark_support)
+        dark_support = np.where(dark_support<1.1e-2,0,dark_support)
+        args.dark_support = dark_support.astype(bool)
         if (not np.isclose(dark_support_side, side) or
             not np.isclose(dark_support_voxel, voxel) or
             not np.isclose(dark_support_nsamples, nsamples)):
             print("dark_support dimensions do not match given options.")
-            dark_support = np.where(dark_support>1e-2,1,dark_support)
-            dark_support = np.where(dark_support<1.1e-2,0,dark_support)
-            args.dark_support = dark_support.astype(bool)
             print("Oversampling and voxel size adjusted to match dark_support dimensions.")
             side = dark_support_side
             voxel = dark_support_voxel
