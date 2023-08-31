@@ -1182,10 +1182,11 @@ def denss(q, I, sigq, dmax, qraw=None, Iraw=None, sigqraw=None,
         
     if dark_reference is not None:
         if dark_support is not None:
-            rho[support] = np.random.random(len(rho[support]))
-            newrho[support] = np.random.random(len(rho[support]))
             rho = np.where(dark_reference>1e-3,dark_reference,0)
             newrho = np.where(dark_reference>1e-3,dark_reference,0)
+            rho[support] = np.random.random(len(rho[support]))
+            newrho[support] = np.random.random(len(rho[support]))
+            
         else:
             print('No support defined when using dark structure as reference! Either pass dark_support or use rho_start')   
 
@@ -1735,7 +1736,8 @@ def shrinkwrap_by_density_value(rho,absv=True,sigma=3.0,threshold=0.2,recenter=T
     recenter_mode - either com (center of mass) or max (maximum density value)
     """
     if recenter:
-        rho = center_rho_roll(rho, recenter_mode)
+        if dark_support is None:
+            rho = center_rho_roll(rho, recenter_mode)
 
     if absv:
         tmp = np.abs(rho)
@@ -1747,9 +1749,10 @@ def shrinkwrap_by_density_value(rho,absv=True,sigma=3.0,threshold=0.2,recenter=T
         support = np.zeros(rho.shape,dtype=bool)
         support[rho_blurred >= threshold*rho_blurred.max()] = True
     else:
-        oldsupport[rho_blurred >= threshold*(rho_blurred.max()-rho_blurred.min())] = True
-        support = oldsupport.copy()
-
+        if oldsupport is not None:
+            oldsupport[rho_blurred >= threshold*(rho_blurred.max()-rho_blurred.min())] = True
+            support = oldsupport.copy()
+            support = np.where(dark_support == False,False,support)
     return rho, support
 
 def shrinkwrap_by_volume(rho,N,absv=True,sigma=3.0,recenter=True,recenter_mode="com",dark_support=None,oldsupport=None):
@@ -1763,7 +1766,8 @@ def shrinkwrap_by_volume(rho,N,absv=True,sigma=3.0,recenter=True,recenter_mode="
     recenter_mode - either com (center of mass) or max (maximum density value)
     """
     if recenter:
-        rho = center_rho_roll(rho, recenter_mode)
+        if dark_support is None:
+            rho = center_rho_roll(rho, recenter_mode)
 
     if absv:
         tmp = np.abs(rho)
@@ -1784,7 +1788,8 @@ def shrinkwrap_by_volume(rho,N,absv=True,sigma=3.0,recenter=True,recenter_mode="
         oldsupport[idx] = True
         #now, calculate the threshold that would correspond to the by_density_value method
         threshold = np.min(rho_blurred[idx])/rho_blurred.max()
-        support = oldsupport.copy()        
+        support = oldsupport.copy()
+        support = np.where(dark_support == False,False,support)        
 
     return rho, support, threshold
 
